@@ -14,7 +14,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.cloudbees.plugins;
 
 import hudson.Extension;
@@ -34,6 +33,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static hudson.model.TaskListener.NULL;
+import java.io.StringReader;
+import java.util.HashMap;
+import java.util.Properties;
 
 /**
  * @author: <a hef="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
@@ -57,17 +59,45 @@ public class JobPrerequisites extends JobProperty<AbstractProject<?, ?>> impleme
     }
 
     /**
-     * @return true if all prerequisites a met on the target Node
+     * Checks if the job prerequisites are met.
+     *
+     * Executes the script file and verifies its return value. If the script
+     * exits with a return value of 0, then there is no blockage.
+     *
+     * @param node the node the check is performed for
+     * @param item the queue item being checked for prerequisites
+     * @return null if all prerequisites a met on the target Node, otherwise a
+     * BecausePrerequisitesArentMet object.
+     * @throws java.io.IOException
+     * @throws java.lang.InterruptedException
      */
-    public CauseOfBlockage check(Node node) throws IOException, InterruptedException {
+    public CauseOfBlockage check(Node node, Queue.BuildableItem item) throws IOException, InterruptedException {
         CommandInterpreter shell = getCommandInterpreter(this.script);
         FilePath root = node.getRootPath();
-        if (root == null) return new CauseOfBlockage.BecauseNodeIsOffline(node); //offline ?
+        if (root == null) {
+            return new CauseOfBlockage.BecauseNodeIsOffline(node); //offline ?
+        }
+        // according to this post we can expect a poperties format string here...
+        // http://stackoverflow.com/a/32912802/541659
+
+        Properties props = new Properties();
+        StringReader sr = new StringReader(item.getParams());
+        props.load(sr);
+
+        // TODO: also add global Jenkins parameters!
+        HashMap<String, String> env = new HashMap<String, String>();
+        for (String k : props.stringPropertyNames()) {
+            env.put(k, props.getProperty(k));
+        }
 
         FilePath scriptFile = shell.createScriptFile(root);
+
         shell.buildCommandLine(scriptFile);
         int r = node.createLauncher(NULL).launch().cmds(shell.buildCommandLine(scriptFile))
-                .stdout(NULL).pwd(root).start().joinWithTimeout(60, TimeUnit.SECONDS, NULL);
+                .envs(env).stdout(NULL).pwd(root).start().joinWithTimeout(60, TimeUnit.SECONDS, NULL);
+
+        scriptFile.delete();
+
         return r == 0 ? null : new BecausePrerequisitesArentMet(node);
     }
 
@@ -100,7 +130,7 @@ public class JobPrerequisites extends JobProperty<AbstractProject<?, ?>> impleme
             if (prerequisites.isNullObject()) {
                 return null;
             }
-            return req.bindJSON(JobPrerequisites.class,prerequisites);
+            return req.bindJSON(JobPrerequisites.class, prerequisites);
         }
 
         public ListBoxModel doFillInterpreterItems() {
@@ -112,7 +142,6 @@ public class JobPrerequisites extends JobProperty<AbstractProject<?, ?>> impleme
     }
 
     // fake implementations for Action, required to contribute the job configuration UI
-
     public String getDisplayName() {
         return null;
     }
