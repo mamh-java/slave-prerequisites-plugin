@@ -90,6 +90,8 @@ public class JobPrerequisites extends JobProperty<AbstractProject<?, ?>> impleme
             env.put(k, props.getProperty(k));
         }
 
+        env.put("NODE_NAME", node.getNodeName().isEmpty() ? "master" : node.getNodeName());
+
         FilePath scriptFile = shell.createScriptFile(root);
 
         shell.buildCommandLine(scriptFile);
