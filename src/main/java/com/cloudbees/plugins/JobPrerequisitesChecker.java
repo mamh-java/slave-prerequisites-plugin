@@ -25,10 +25,12 @@ import hudson.model.Queue;
 import hudson.model.queue.CauseOfBlockage;
 import hudson.model.queue.QueueTaskDispatcher;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.logging.Logger;
 
 /**
@@ -42,7 +44,7 @@ public class JobPrerequisitesChecker extends QueueTaskDispatcher {
     ExecutorService pool = Executors.newCachedThreadPool();
 
     Map<String, Future<CauseOfBlockage>> futures = new HashMap<String, Future<CauseOfBlockage>>();
-    
+
     @Override
     public CauseOfBlockage canTake(final Node node, final Queue.BuildableItem item) {
 
@@ -76,15 +78,15 @@ public class JobPrerequisitesChecker extends QueueTaskDispatcher {
     private final static CauseOfBlockage CHECKING = CauseOfBlockage.fromMessage(Messages._JobPrerequisitesChecker_CheckingJobPrerequisites());
 
     private String key(Queue.Item item, Node node) {
-        return String.valueOf(item.id)+":"+node.getNodeName();
+        return String.valueOf(item.getId()) + ":" + node.getNodeName();
     }
 
     private JobPrerequisites getPrerequisite(Queue.BuildableItem item) {
         Queue.Task task = item.task;
         if (task instanceof AbstractProject) {
-            AbstractProject<?,?> p = (AbstractProject<?,?>) task;
+            AbstractProject<?, ?> p = (AbstractProject<?, ?>) task;
             if (task instanceof MatrixConfiguration) {
-                p = (AbstractProject<?,?>)((MatrixConfiguration)task).getParent();
+                p = (AbstractProject<?, ?>) ((MatrixConfiguration) task).getParent();
             }
             return p.getProperty(JobPrerequisites.class);
         }
