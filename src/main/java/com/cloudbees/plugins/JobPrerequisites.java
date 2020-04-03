@@ -100,7 +100,7 @@ public class JobPrerequisites extends JobProperty<AbstractProject<?, ?>> impleme
             if (prerequisites.isNullObject()) {
                 return null;
             }
-            return req.bindJSON(JobPrerequisites.class,prerequisites);
+            return req.bindJSON(JobPrerequisites.class, prerequisites);
         }
 
         public ListBoxModel doFillInterpreterItems() {
