@@ -30,10 +30,14 @@ import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
+import javax.annotation.Nonnull;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static hudson.model.TaskListener.NULL;
 
@@ -41,12 +45,15 @@ import static hudson.model.TaskListener.NULL;
  * @author: <a hef="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
  */
 public class JobPrerequisites extends JobProperty<AbstractProject<?, ?>> implements Action {
+    private transient static final Logger LOGGER = Logger.getLogger(JobPrerequisites.class.getName());
 
     private final String script;
     private final String interpreter;
-
-    public static final String SHELL_SCRIPT = "shell script";
-    public static final String WINDOWS = "windows batch command";
+    private static final String MARKER    = "#:#:#";
+    private static final String CAUSE_VAR = "CAUSE";
+    private static final String CRLF      = "\r\n";
+    public static final String SHELL_SCRIPT = "linux shell script";
+    public static final String WINDOWS = "windows batch script";
 
     @DataBoundConstructor
     public JobPrerequisites(String script, String interpreter) {
@@ -61,30 +68,91 @@ public class JobPrerequisites extends JobProperty<AbstractProject<?, ?>> impleme
     /**
      * @return true if all prerequisites a met on the target Node
      */
-    public CauseOfBlockage check(Node node, Queue.BuildableItem item)
-            throws IOException, InterruptedException {
-        CommandInterpreter shell = getCommandInterpreter(this.script);
+    public CauseOfBlockage check(Node node, Queue.BuildableItem item) throws InterruptedException {
         FilePath root = node.getRootPath();
         if (root == null) return new CauseOfBlockage.BecauseNodeIsOffline(node); //offline ?
 
-        HashMap<String, String> envs = new HashMap<String, String>();
+        HashMap<String, String> envs = new HashMap<>();
         envs.put("PARAMS", item.getParams());
 
-        FilePath scriptFile = shell.createScriptFile(root);
-        shell.buildCommandLine(scriptFile);
-        int r = node.createLauncher(NULL).launch().cmds(shell.buildCommandLine(scriptFile))
-                .envs(envs).stdout(NULL).pwd(root).start().joinWithTimeout(60, TimeUnit.SECONDS, NULL);
-        scriptFile.delete();
-        return r == 0 ? null : new BecausePrerequisitesArentMet(node);
-    }
-
-    private CommandInterpreter getCommandInterpreter(String script) {
-        if (WINDOWS.equals(interpreter)) {
-            return new BatchFile(script);
+        try {
+            FilePath scriptFile =  createScriptFile(root);
+            try {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                String[] cmd = buildCommandLine(scriptFile);
+                int exitCode = node.createLauncher(NULL)
+                        .launch()
+                        .cmds(cmd)
+                        .envs(envs)
+                        .stdout(baos)
+                        .pwd(root)
+                        .start()
+                        .joinWithTimeout(60, TimeUnit.SECONDS, NULL);
+                String output = baos.toString();
+                LOGGER.log(Level.WARNING, "command execution output:\n" + output);
+                if (exitCode == 0) {
+                    return null;
+                }
+                LOGGER.log(Level.WARNING, "command execution exit not zero");
+            } catch (IOException e) {
+                LOGGER.log(Level.WARNING, "command execution failed", e);
+            } finally {
+                try {
+                    scriptFile.delete();
+                } catch (IOException e) {
+                    LOGGER.log(Level.WARNING, "Unable to delete script file", e);
+                }            }
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Unable to produce a script file", e);
         }
-        return new Shell(script);
+        LOGGER.log(Level.WARNING, "command execution exit not zero then return BecausePrerequisitesArentMet");
+
+        return new BecausePrerequisitesArentMet(node);
+
     }
 
+    private String[] buildCommandLine(FilePath batchFile) {
+        String[] cmd;
+        if (isUnix()) {
+            cmd = new String[]{"bash", batchFile.getRemote()};
+        } else {
+            cmd = new String[]{"cmd", "/c", "call", batchFile.getRemote()};
+        }
+        return cmd;
+    }
+
+    private FilePath createScriptFile(@Nonnull FilePath dir) throws IOException, InterruptedException {
+        return dir.createTextTempFile("jenkins", getFileExtension(), getContents(), false);
+    }
+
+    private String getFileExtension() {
+        if (isUnix()) {
+            return ".sh";
+        } else {
+            return ".bat";
+        }
+    }
+
+    private String getContents() {
+        String contents = ""
+                + "@set "+ CAUSE_VAR +"=" +CRLF
+                + "@echo off" + CRLF
+                + "call :TheActualScript" + CRLF
+                + "@echo off" + CRLF
+                + "echo " + MARKER + CAUSE_VAR + MARKER + "%" + CAUSE_VAR + "%" + MARKER + CRLF
+                + "goto :EOF" + CRLF
+                + ":TheActualScript" + CRLF
+                + script + CRLF;
+        if (isUnix()) {
+            return script;
+        }else {
+            return contents;
+        }
+    }
+
+    private boolean isUnix() {
+        return File.pathSeparatorChar == ':';
+    }
     @Extension
     public final static class DescriptorImpl extends JobPropertyDescriptor {
 
