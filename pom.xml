@@ -19,7 +19,7 @@
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-        <version>1.452</version> <!-- need 1ac4872ecdc500c63c0dbfce5e4beb5ce78369e5 -->
+        <version>3.25</version> <!-- need 1ac4872ecdc500c63c0dbfce5e4beb5ce78369e5 -->
 	</parent>
 
 	<artifactId>slave-prerequisites</artifactId>
@@ -46,7 +46,18 @@
 		</developer>
 	</developers>
 
+	<dependencies>
+
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>matrix-project</artifactId>
+			<version>1.14</version>
+		</dependency>
+	</dependencies>
+
 	<properties>
+        <jenkins.version>2.176.1</jenkins.version>
+        <java.level>8</java.level>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 	<scm>
