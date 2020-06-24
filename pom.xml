@@ -14,8 +14,7 @@
   ~ You should have received a copy of the GNU Lesser General Public
   ~ along with this program; if not, see <http://www.gnu.org/licenses />.
   -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
@@ -25,7 +24,7 @@
 
     <artifactId>slave-prerequisites</artifactId>
     <name>Slave Prerequisites plugin</name>
-    <version>1.1-SNAPSHOT</version>
+    <version>1.1</version>
     <packaging>hpi</packaging>
     <description>Run a script on slave node before letting a Job run on it, to check for prerequisites.</description>
     <url>https://github.com/mamh-java/slave-prerequisites-plugin</url>
@@ -70,7 +69,8 @@
         <connection>scm:git:https://github.com/mamh-java/slave-prerequisites-plugin</connection>
         <developerConnection>scm:git:https://github.com/mamh-java/slave-prerequisites-plugin</developerConnection>
         <url>https://github.com/mamh-java/slave-prerequisites-plugin</url>
-    </scm>
+      <tag>slave-prerequisites-1.1</tag>
+  </scm>
 
     <repositories>
         <repository>
