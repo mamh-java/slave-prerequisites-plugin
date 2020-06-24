@@ -35,6 +35,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -73,7 +74,19 @@ public class JobPrerequisites extends JobProperty<AbstractProject<?, ?>> impleme
         if (root == null) return new CauseOfBlockage.BecauseNodeIsOffline(node); //offline ?
 
         HashMap<String, String> envs = new HashMap<>();
-        envs.put("PARAMS", item.getParams());
+        List<ParametersAction> actions = item.getActions(ParametersAction.class);
+        for (ParametersAction action : actions) {
+            List<ParameterValue> parameters = action.getParameters();
+            for (ParameterValue parameter : parameters) {
+                if(parameter instanceof StringParameterValue){
+                    StringParameterValue p = (StringParameterValue) parameter;
+                    envs.put(p.getName(), p.getValue());
+                }else if(parameter instanceof BooleanParameterValue){
+                    BooleanParameterValue p = (BooleanParameterValue) parameter;
+                    envs.put(p.getName(), p.getValue() + "");
+                }
+            }
+        }
 
         try {
             FilePath scriptFile =  createScriptFile(root);
